@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget vs. Gross (Interactive Line Chart)</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body { font-family: sans-serif; }
+    .line { fill: none; stroke-width: 2px; }
+    .tooltip {
+      position: absolute;
+      background-color: white;
+      padding: 8px;
+      border: 1px solid #ccc;
+      pointer-events: none;
+    }
+    .legend { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>Production Budget vs. Gross Revenue (Millions USD)</h2>
+  <svg width="800" height="500"></svg>
+  <div class="tooltip" style="opacity:0;"></div>
+
+  <script>
+    const svg = d3.select("svg"),
+          margin = {top: 40, right: 120, bottom: 50, left: 80},
+          width = +svg.attr("width") - margin.left - margin.right,
+          height = +svg.attr("height") - margin.top - margin.bottom,
+          g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const tooltip = d3.select(".tooltip");
+
+    d3.csv("cleaned_budget_gross.csv", d => ({
+      budget: +d.Production_budget_m,
+      domestic: +d.Domestic_gross_m,
+      worldwide: +d.Worldwide_gross_m
+    })).then(data => {
+      const x = d3.scaleLinear()
+                  .domain(d3.extent(data, d => d.budget))
+                  .range([0, width]);
+
+      const y = d3.scaleLinear()
+                  .domain([0, d3.max(data, d => Math.max(d.domestic, d.worldwide))])
+                  .range([height, 0]);
+
+      const lineDomestic = d3.line()
+        .x(d => x(d.budget))
+        .y(d => y(d.domestic));
+
+      const lineWorldwide = d3.line()
+        .x(d => x(d.budget))
+        .y(d => y(d.worldwide));
+
+      g.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).tickFormat(d => `$${d}M`));
+
+      g.append("g")
+        .call(d3.axisLeft(y).tickFormat(d => `$${d}M`));
+
+      g.append("path")
+        .datum(data)
+        .attr("class", "line")
+        .attr("stroke", "steelblue")
+        .attr("d", lineDomestic);
+
+      g.append("path")
+        .datum(data)
+        .attr("class", "line")
+        .attr("stroke", "orange")
+        .attr("d", lineWorldwide);
+
+      g.selectAll(".dot-domestic")
+        .data(data)
+        .enter().append("circle")
+        .attr("cx", d => x(d.budget))
+        .attr("cy", d => y(d.domestic))
+        .attr("r", 3)
+        .attr("fill", "steelblue")
+        .on("mouseover", (event, d) => {
+          tooltip.transition().duration(200).style("opacity", .9);
+          tooltip.html(`Budget: $${d.budget}M<br>Domestic: $${d.domestic}M`)
+            .style("left", event.pageX + 10 + "px")
+            .style("top", event.pageY - 28 + "px");
+        })
+        .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+
+      g.selectAll(".dot-worldwide")
+        .data(data)
+        .enter().append("circle")
+        .attr("cx", d => x(d.budget))
+        .attr("cy", d => y(d.worldwide))
+        .attr("r", 3)
+        .attr("fill", "orange")
+        .on("mouseover", (event, d) => {
+          tooltip.transition().duration(200).style("opacity", .9);
+          tooltip.html(`Budget: $${d.budget}M<br>Worldwide: $${d.worldwide}M`)
+            .style("left", event.pageX + 10 + "px")
+            .style("top", event.pageY - 28 + "px");
+        })
+        .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+
+      g.append("rect").attr("x", width + 20).attr("y", 0).attr("width", 10).attr("height", 10).attr("fill", "steelblue");
+      g.append("text").attr("x", width + 35).attr("y", 10).attr("class", "legend").text("Domestic Gross");
+
+      g.append("rect").attr("x", width + 20).attr("y", 20).attr("width", 10).attr("height", 10).attr("fill", "orange");
+      g.append("text").attr("x", width + 35).attr("y", 30).attr("class", "legend").text("Worldwide Gross");
+    });
+  </script>
+</body>
+</html>
